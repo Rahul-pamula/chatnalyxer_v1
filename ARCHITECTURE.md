@@ -33,7 +33,7 @@ graph TD
     GEM[Gemini 2.0 Flash]
     OCR[Azure Document Intelligence]
   end
-  subgraph Core (FastAPI, clean arch)
+  subgraph Core["Core – FastAPI clean arch"]
     GATE[Gateway/API]
     STATE[Obligation Engine]
     SCHED[Scheduler]
