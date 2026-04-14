@@ -1,0 +1,33 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node/JS
+node_modules/
+.npmrc
+.pnpm-store/
+.yarn/
+.yarnrc
+.yarn-cache/
+.turbo/
+.expo/
+coverage/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Env & secrets
+.env
+.env.*
+.secrets/
+
+# Build artifacts
+/dist/
+/build/
+.out/
+
+# Editor
+.idea/
+.vscode/
