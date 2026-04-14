@@ -1,11 +1,11 @@
 # Chatnalyxer v1 — Architecture
 
 ## Purpose & Scope
-Local-first, privacy-focused obligation engine that ingests WhatsApp and Email, extracts obligations with AI, and schedules them to external calendars without exposing raw content to the cloud.
+Privacy-preserving obligation engine for WhatsApp + Email. v1 uses **cloud-side ingestion with immediate redaction** (transparent “Option B”) while keeping full device sovereignty for long-term storage and triage.
 
 ## Goals
-- Channels: WhatsApp (Baileys dev, Cloud API prod), Email (IMAP/Graph).
-- Local-first: full content stays on device (SQLCipher vault); cloud sees redacted envelopes unless consented.
+- Channels: WhatsApp (Baileys dev sandbox only, Cloud API prod), Email (IMAP/Graph).
+- Privacy stance: v1 “privacy-preserving cloud processing” — inbound webhooks/pollers hit backend, redaction happens immediately; no raw persistence beyond in-memory queue; device remains system of record. Roadmap: Option A true local ingest.
 - AI: Gemini 2.0 Flash (structured JSON), Azure Document Intelligence OCR; RAG-ready embeddings of sanitized text.
 - Outputs: calendar events (Google/Microsoft), notifications/alarms, audit trail.
 
@@ -70,12 +70,12 @@ graph TD
 - **Mobile (RN)**: Local encrypted vault (SQLCipher/WatermelonDB), offline triage, push/pull sync, QR/pairing UI.
 - **Web Hub (Next.js)**: Connect center, privacy console, audit timeline, admin (DLQ replay).
 - **Ingestion**: Baileys multi-session for dev; Cloud API webhook for prod; IMAP/Graph poller for email; normalize to CloudEvents and push to SQS.
-- **Redaction Proxy**: Presidio + regex + LLM-Guard; deterministic tokenization; ephemeral token map encrypted with tenant KMS key.
-- **AI Service**: Gemini with structured outputs; Azure DI for PDFs/images; emits obligations and evidence spans.
-- **Obligation/State Engine**: State machine (Detected → Proposed → Confirmed → Scheduled → Rescheduled → Canceled); versioned analyses; dedupe across channels.
-- **Scheduler**: Google/Microsoft adapters; conflict checks; time-zone safe; reschedule/cancel hooks.
+- **Redaction Proxy**: Presidio + regex + LLM-Guard; **per-request salted tokenization** (nonce sealed with tenant KMS); no deterministic reuse; ephemeral map in memory only.
+- **AI Service**: Gemini with structured outputs + confidence thresholds; fallback rules engine; low-confidence → user confirmation. Azure DI for PDFs/images via async queue; emits obligations and evidence spans.
+- **Obligation/State Engine**: State machine (Detected → Proposed → Confirmed → Scheduled → Rescheduled → Canceled); versioned analyses; **hybrid dedupe** (time-window + participant hash + semantic embedding); conflict-safe/idempotent.
+- **Scheduler**: Google/Microsoft adapters; conflict rules (buffers, working hours, no double-book); time-zone safe; reschedule/cancel hooks; alarm/notification matrix.
 - **Notification**: SES email, WA acks (templates), push (Expo/Firebase), in-app toasts.
-- **Data Stores**: Postgres with RLS per user; Redis for limits/locks; S3 for consented blobs; local vault on device.
+- **Data Stores**: Postgres with RLS per user + tenant_id indices + “tenant required” guard; Redis for limits/locks; S3 for consented blobs (off by default); local vault on device (hot/cold tiers).
 - **Observability**: OTel traces/metrics/logs → CloudWatch/X-Ray; dashboards for ingest latency, AI latency, calendar success, DLQ depth.
 
 ## Data Model (server)
@@ -89,8 +89,9 @@ graph TD
 | schedules | id, obligation_id, external_event_id, provider, tz | calendar linkage |
 | attachments | id, message_id, s3_url_enc, mime, size | only if consented |
 | audits | id, user_id, action, actor, reason, ts | all state transitions |
+| embeddings | id, user_id, payload_hash, vector | sanitized embeddings; usage toggle, always stored |
 
-RLS policy example: `USING (user_id = current_setting('app.current_tenant')::uuid)` on every user-scoped table.
+RLS policy: `USING (user_id = current_setting('app.current_tenant')::uuid)` on every user-scoped table **plus** tenant_id indexes and “reject if setting missing.” Optional per-tenant schemas for high-sensitivity cohorts.
 
 ## Event Contracts (CloudEvents v1.0)
 - `chat.message.received`: `{message_id, thread_id, channel, sender_hash, ts, raw_text?, attachments[]}`
@@ -111,9 +112,11 @@ RLS policy example: `USING (user_id = current_setting('app.current_tenant')::uui
 - Auth handled upstream (Cognito/Clerk) → JWT → app.current_tenant set in DB pool.
 
 ## Security & Privacy
-- Default redacted-only to cloud; full text/attachments require explicit per-channel consent.
-- Per-tenant KMS keys; column encryption for tokens; S3 SSE-KMS; device keystore for vault key; remote wipe supported.
-- WAF + Redis rate limits; DLP size/type gates; secret scanning + SAST/DAST in CI.
+- **Option B stated**: cloud ingestion with immediate redaction; no raw persistence; deletion SLA <5s for ingress buffers.
+- Default redacted-only; full text/attachments only with explicit per-channel consent; consent revocation stops processing mid-pipeline.
+- Per-tenant KMS keys; column encryption for tokens; per-request salted tokenization; S3 SSE-KMS (off by default); device keystore for vault key; remote wipe supported.
+- DB guardrails: tenant_id in indexes; reject if `app.current_tenant` not set; optional per-tenant schema; JWT tenant checked in middleware and DB session.
+- WAF + Redis rate limits; DLP size/type gates; secret scanning + SAST/DAST in CI; backup/restore encrypted and tested.
 
 ## Performance Targets
 - Ingest → analysis: P50 < 4s, P95 < 8s (redacted path).
@@ -122,12 +125,20 @@ RLS policy example: `USING (user_id = current_setting('app.current_tenant')::uui
 - Offline tolerance: 72h queued ops without loss.
 
 ## Observability & Reliability
-- OTel everywhere; dashboards: ingest latency, AI latency, calendar success, DLQ depth.
-- SQS DLQ + replay tool; session watchdog (Baileys); email poller heartbeat.
-- Chaos drills: kill WA session, drop IMAP, network partition; verify recovery.
+- OTel everywhere; dashboards: ingest latency, AI latency, calendar success, DLQ depth, OCR queue age.
+- SQS DLQ + replay tool; session watchdog (Baileys dev); email poller heartbeat; ordering per user via message grouping key.
+- Chaos drills: kill WA session, drop IMAP, network partition; verify recovery and idempotent replays.
+
+## Data/Sync/AI Guardrails
+- Dedupe: time-window + participant hash + semantic embedding cosine + text hash; user “merge?” prompt on high similarity.
+- Conflicts: version vectors + field-level merge; conflict UI prompt; no silent overwrite.
+- Offline queue: priority tiers, TTL per job, revalidate obligations on reconnect before apply.
+- OCR: pre-filter MIME/size/pages; async queue; user “processing…” status; cap concurrency.
+- AI reliability: confidence thresholds; fallback rules engine; low-confidence → user confirmation.
+- RAG: embeddings always stored (sanitized); usage toggle at inference time to avoid codepath divergence.
 
 ## Rollout
-- Alpha: Baileys-only, internal testers, mock calendars allowed.
-- Beta: Email + calendar writes, redacted-by-default, cohort waitlist.
-- Prod: Cloud API primary; Baileys dev-only; tighten WAF/rate limits; start Slack/Discord adapters; consent-gated monetization hooks.
+- Alpha: Baileys-only **in isolated dev sandbox** with seeded numbers; internal testers; mock calendars allowed.
+- Beta: Email + calendar writes, redacted-by-default, cohort waitlist; Cloud API shadow tests.
+- Prod: Cloud API primary; Baileys dev-only/sandbox; WAF/rate limits tightened; adapters/monetization only behind flags.
 ```
