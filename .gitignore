@@ -31,3 +31,5 @@ __pycache__/
 # Editor
 .idea/
 .vscode/
+
+/generated/prisma
