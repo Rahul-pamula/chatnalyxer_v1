@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { Colors } from '@/constants/Theme';
+import { Colors } from '@/constants/design';
 
 export default function RootLayout() {
   return (

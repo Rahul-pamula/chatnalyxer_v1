@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Colors, FontSizes, Spacing, Radius } from '@/constants/Theme';
+import { Colors, FontSizes, Spacing, Radius } from '@/constants/design';
 
 export default function ConnectScreen() {
   return (

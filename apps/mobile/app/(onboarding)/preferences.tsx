@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useState, useEffect } from 'react';
-import { Colors, FontSizes, Spacing, Radius } from '@/constants/Theme';
+import { Colors, FontSizes, Spacing, Radius } from '@/constants/design';
 
 const FOCUS_OPTIONS = [
   { id: 'deadlines', label: 'Deadlines & Due Dates', icon: '📅' },

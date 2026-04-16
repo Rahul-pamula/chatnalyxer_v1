@@ -11,7 +11,7 @@ import Animated, {
   withRepeat,
   Easing,
 } from 'react-native-reanimated';
-import { Colors, FontSizes, Spacing } from '@/constants/Theme';
+import { Colors, FontSizes, Spacing } from '@/constants/design';
 
 const { width, height } = Dimensions.get('window');
 

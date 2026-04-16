@@ -9,7 +9,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { useEffect } from 'react';
-import { Colors, FontSizes, Spacing, Radius } from '@/constants/Theme';
+import { Colors, FontSizes, Spacing, Radius } from '@/constants/design';
 
 const { width, height } = Dimensions.get('window');
 
@@ -83,7 +83,7 @@ export default function LoginScreen() {
           {/* Email placeholder */}
           <TouchableOpacity
             style={styles.emailButton}
-            onPress={() => router.push('/(auth)/email')}
+            onPress={() => router.push('/(auth)/email' as any)}
             activeOpacity={0.85}
           >
             <Text style={styles.emailButtonText}>Continue with Email</Text>

@@ -9,7 +9,7 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import { useState, useEffect } from 'react';
-import { Colors, FontSizes, Spacing, Radius } from '@/constants/Theme';
+import { Colors, FontSizes, Spacing, Radius } from '@/constants/design';
 
 const PERSONAS = [
   {
@@ -58,7 +58,7 @@ export default function PersonaScreen() {
   const handleContinue = () => {
     if (!selected) return;
     // TODO: POST /user/profile { archetype: selected }
-    router.replace('/(onboarding)/preferences');
+    router.replace('/(onboarding)/preferences' as any);
   };
 
   return (
