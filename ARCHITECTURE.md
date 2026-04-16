@@ -26,7 +26,7 @@ graph TD
     WA_DEV[Baileys Session Manager]
     WA_PROD[Cloud API Webhook]
     MAIL[IMAP/Graph Poller]
-    EVBUS[SQS + DLQ]
+    EVBUS[RabbitMQ: Message Broker]
   end
   subgraph AI
     REDACT[Redaction Proxy]
@@ -69,7 +69,7 @@ graph TD
 ## Component Responsibilities
 - **Mobile (RN)**: Local encrypted vault (SQLCipher/WatermelonDB), offline triage, push/pull sync, QR/pairing UI.
 - **Web Hub (Next.js)**: Connect center, privacy console, audit timeline, admin (DLQ replay).
-- **Ingestion**: Baileys multi-session for dev; Cloud API webhook for prod; IMAP/Graph poller for email; normalize to CloudEvents and push to SQS.
+- **Ingestion**: Baileys multi-session for dev; Cloud API webhook for prod; IMAP/Graph poller for email; normalize to CloudEvents and push to RabbitMQ.
 - **Redaction Proxy**: Presidio + regex + LLM-Guard; **per-request salted tokenization** (nonce sealed with tenant KMS); no deterministic reuse; ephemeral map in memory only.
 - **AI Service**: Gemini with structured outputs + confidence thresholds; fallback rules engine; low-confidence → user confirmation. Azure DI for PDFs/images via async queue; emits obligations and evidence spans.
 - **Obligation/State Engine**: State machine (Detected → Proposed → Confirmed → Scheduled → Rescheduled → Canceled); versioned analyses; **hybrid dedupe** (time-window + participant hash + semantic embedding); conflict-safe/idempotent.
@@ -119,7 +119,7 @@ RLS policy: `USING (user_id = current_setting('app.current_tenant')::uuid)` on e
 - WAF + Redis rate limits; DLP size/type gates; secret scanning + SAST/DAST in CI; backup/restore encrypted and tested.
 
 ## Performance Targets
-- Ingest → analysis: P50 < 4s, P95 < 8s (redacted path).
+- Ingest → analysis: P50 < 10s, P95 < 15s (redacted path). Relaxed latency allows for higher-accuracy AI reasoning.
 - Calendar write success > 99%; retries with backoff.
 - Attachment OCR limit: 15 MB; overflow rejected with user notice.
 - Offline tolerance: 72h queued ops without loss.
