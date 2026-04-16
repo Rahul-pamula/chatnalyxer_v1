@@ -1,83 +1,181 @@
-# Chatnalyxer v1 — Phase-wise Plan
-_8 phases, Sh_R_Mail style. Acceptance criteria are hard gates._
+# Chatnalyxer: Granular Master Phase Plan (V3.5)
 
-## Phase 1 — Foundations
-**Tasks**
-- Scaffold monorepo (turbo/nx) with `apps` and `packages/design-system` (Tokens, shared components).
-- Set up Design System: **Midnight (`#050505`) & Snow (`#FFFFFF`)** themes; `Outfit` (Headings) + `Inter` (Body) typography; and the `8px` spacing grid.
-- Integrate ThemeProvider for **Automatic System Theme Syncing** (0.3s fade transition).
-- Set up CI (GH Actions): lint, typecheck, unit, contract stubs; pre-commit with lint+format.
-- Secrets management: SOPS/Doppler, baseline `.env.example`, bootstrap instructions.
-- Provision Postgres with RLS; connection pool sets `app.current_tenant` per request; migration baseline.
-- Mobile vault skeleton: WatermelonDB + SQLCipher wiring; local encrypt/decrypt smoke test.
-- OpenAPI generation from FastAPI → shared TS client package; publish as workspace dependency.
-**Accept**: Fresh clone passes CI; RLS denies cross-tenant access; RN can persist+read encrypted row; generated client builds.
+This document provides a comprehensive, field-level breakdown of every requirement, from foundational scaffolding to high-end AI learning loops and futuristic V2.0 features.
 
-## Phase 2 — Ingestion
-**Tasks**
-- Implement Baileys session manager (QR/pairing endpoints, per-user port map, health watchdog) **in isolated dev sandbox**.
-- Add WhatsApp Cloud API webhook endpoint with signature verification; config for phone number ID/token; content never persisted raw.
-- Build IMAP/Graph poller (UID incremental sync, folder allowlist, retry/backoff; no raw disk persistence).
-- **Architecture Scaling:** Implement RabbitMQ **Hash Exchange** based on `user_id` for worker sharding and local state performance.
-- CloudEvents normalizer module; schema validation; **Support for binary attachments (PDF/Images)**; publish to RabbitMQ; DLQ/Retry exchange plumbing.
-- Health endpoints & dashboards for ingestion components.
-**Accept**: WA and email test messages appear on SQS as `chat.message.received`; forced bad payload lands in DLQ; ingestion health endpoints green; Baileys traffic tagged dev-only.
+---
 
-## Phase 3 — Vault & Sync
-**Tasks**
-- Implement pull/push (lastPulledAt), offline queue with priorities/TTL, **version vectors + field-level merge** (no silent client-wins); conflict UI hook.
-- Deletion/Restoration logic: Swipe-to-trash with **5s "Undo" safety net** (toast).
-- Implement 30-day **Trash retention** and silent restoration logic (quiet toast, no push).
-- Remote wipe signal + device key rotation path; keystore integration.
-- Redis watchdog for session state; attachment LRU eviction on device; hot/cold storage tiers.
-- Sync resilience: exponential backoff, retry caps, telemetry for failures; revalidate obligations on reconnect before apply.
-**Accept**: Offline edits sync cleanly; conflict test surfaces prompt and merges correctly; remote wipe nukes vault key/data; attachment cache evicts by size/age; priority queue flush respects TTL.
+## Phase 1 — Foundational Scaffolding & Zero-Knowledge Vault
+**Goal:** Establish the architecture that guarantees the "Private Office" promise.
 
-## Phase 4 — Redaction & AI
-**Tasks**
-- **Multi-Tier Filtering (The Sieve):** Implement Level 0 (Regex Engine with Multilingual support) -> Level 1 (Grok-Fast Scorer) -> Level 2 (Gemini Pro Extraction).
-- **Message Sessionization (Silence-based):** Implement a **45-second "Debounced" aggregation window**. The system waits for silence before processing, ensuring that whether a user sends 2 messages or 20, they are bundled correctly when the thought is finished.
-- **Proactive Trigger:** Instantly trigger extraction if a message contains terminal punctuation (e.g., "?") to reduce perceived latency.
-- **Multimodal & Multilingual Brain:** Integrate Gemini 2.0 Flash (Vision) for PDF/Image extraction and cross-lingual task normalization.
-- Implement **Privacy-First Vector Memory (pgvector)** to store user decision patterns and event fingerprints.
-- Wire Azure DI OCR via **RabbitMQ async queue**; pre-filter MIME/size/pages; reject >15MB; user “processing” status.
-- Store sanitized embeddings always; inference-time toggle for usage; TTL/eviction policy.
-**Accept**: PII tokenized with differing tokens per request; Gemini returns schema-valid JSON; low-confidence routed to confirm; sample PDF returns OCR text via async queue; embeddings stored and retrievable; map auto-destroyed within SLA.
+### 1.1 Monorepo & DX (TurboRepo)
+- Initialize `turbo` workspace with strict `pnpm` workspaces.
+- **Apps:** `apps/mobile` (React Native), `apps/web` (Next.js), `apps/backend` (FastAPI).
+- **Packages:** `packages/design-system`, `packages/types`, `packages/crypto-core`.
+- Configure `GitHub Actions` for multi-package linting/testing.
+- Setup `Doppler/SOPS` for dynamic secret injection (no `.env` files).
 
-## Phase 5 — State Machine & Scheduling
-**Tasks**
-- Implement obligation lifecycle with audit trail; idempotent transitions; per-user event ordering key.
-- **Learning Loop Engine:** Update "User Preference Profile" based on Swipe-Left/Right and manual edits; incorporate profile into AI system prompts.
-- **Cross-Channel Deduplication:** Implement **Semantic Fingerprinting** using pgvector to detect and merge overlaps between WhatsApp and Email.
-- Refined States: **Proposed <-> Deleted <-> Restored**; silent notification on restore/undo.
-- Link `chat.message.updated/deleted` to reschedule/cancel flows; dedupe: time-window + participant hash + embedding similarity.
-- Calendar adapters (Google/MS): OAuth, conflict rules (buffers, working hours, no double-book), retries/backoff; alarms/notifications matrix.
-- Time-zone safety and daylight-shift handling; auto-propose alternates on conflict; user choice flow.
-**Accept**: Chat/email creates Proposed; user confirm -> calendar event; edit -> reschedule respecting buffers; cancel -> delete event; audits recorded; dedupe prompt shown on similar items; TZ/conflict tests pass.
+### 1.2 "Midnight & Snow" Design System
+- **Typography:** Import 'Outfit' (Headings) and 'Inter' (Body).
+- **Spacing:** Implement strict 8px increment grid variables.
+- **Tokens:** Midnight (`#050505`), Snow (`#FFFFFF`), Primary Accent, Warning Red.
+- **ThemeProvider:** Implement automatic system theme detection.
+- **UX Polish:** Add the optimized 0.3s fade-transition for theme switching.
 
-## Phase 6 — UX Delivery
-**Tasks**
-- Mobile: onboarding + QR/pairing, connect status, group/folder selector (**sticky search & sorting**), triage swipe.
-- Implement **"Hero" Card Expansions** (cards expand to fill screen on tap) and **Privacy Peeking** toggle.
-- Add **Grayscale Offline Mode**: UI desaturates when network is lost for intuitive feedback.
-- Mobile: **Edit Bottom Sheet** for high-speed field correction.
-- Web Hub: Connect Center, Privacy Console (scopes, what-left-device view), Audit timeline, DLQ/replay admin, feature flags view.
-- Landing: waitlist form, pricing toggle, FAQ, privacy summary, analytics snippet (consent-aware).
-**Accept**: End-to-end happy path on device (onboard→connect→select→confirm→calendar); sticky sorting and search work flawlessly; edits sync to calendar in background; Hub shows live status/audit; landing collects waitlist entries.
+### 1.3 The SQLCipher Vault (Mobile)
+- Setup `WatermelonDB` with `op-sqlite` + `SQLCipher` adapter.
+- **Key Derivation:** Implement `PBKDF2-SHA256` with 600,000 iterations for master key.
+- **Persistence:** Store salt in device Secure Enclave (Keychain/Keystore).
+- **Data Model:** Draft initial `messages`, `obligations`, `channels`, and `user_profiles` schemas.
 
-## Phase 7 — Reliability & Security
-**Tasks**
-- OTel traces/metrics/logs; dashboards for ingest latency, AI latency, calendar success, **RabbitMQ queue depth**, OCR queue age.
-- WAF + Redis rate limits; DLP size/type gates; “tenant required” DB guard; JWT tenant to DB session check.
-- Chaos drills: kill Baileys, drop IMAP, network partition; observe auto-recovery; **RabbitMQ management console** checks; idempotency validation.
-- Backups/restore tested; key rotation runbook executed in staging; audit logs verified; deletion SLA checks.
-**Accept**: Dashboards live; chaos tests auto-recover; DLQ replay clears backlog; backup-restore/key-rotation succeed; deletion SLA met; tenant guard rejects unset sessions.
+### 1.4 Silent Cloud Backup (Zero-Knowledge)
+- **Logic:** Implement version-vector checks to avoid redundant uploads; 30s execution limit handling.
+- **Harden Sync:** Implement **Silent Push Notifications (FCM/APNs)** to reliably wake the app for zero-knowledge backup, bypassing unreliable OS fetch heuristics.
+- **Storage Silo:** Configure dedicated `/Chatnalyxer_Backups` directory in user's personal Google Drive/iCloud.
 
-## Phase 8 — Scale & Multichannel
-**Tasks**
-- Prod cutover to WhatsApp Cloud API; Baileys dev-only isolated infra; disable raw logging in prod.
-- Performance tuning: queue sizing, autoscaling policies, connection pools, per-user ordering guarantees.
-- Slack/Discord adapter interface reusing CloudEvents; adapter skeletons + contract tests.
-- RAG usage toggle hardened; consent-gated monetization hooks behind feature flags; cost guardrails.
-- Load test + cost/SLO review; ban-risk monitoring for WA numbers.
-**Accept**: Load test (thousands concurrent webhooks) meets SLOs; Cloud API templates send acks; Slack/Discord adapter tests pass; monetization flag deploys cleanly; cost/SLO doc signed off; prod logs scrub content.
+---
+
+## Phase 2 — High-Throughput Multichannel Ingestion
+**Goal:** Ingest thousands of messages per second with absolute order guarantees.
+
+### 2.1 Ingestion Gateways
+- **WhatsApp (Sandbox):** Baileys session manager with paired-terminal QR endpoints.
+- **WhatsApp (Prod):** Webhook receiver with cryptographic signature validation.
+- **Email:** IMAP poller + Microsoft Graph API integration using UID incremental sync.
+- **Attachments:** Implement binary extraction for PDFs and Images (`application/pdf`, `image/*`).
+
+### 2.2 RabbitMQ Sharding (The Hash Exchange)
+- Configure `RabbitMQ Hash Exchange`.
+- **Routing:** Use `user_id` as routing key to guarantee per-user message ordering.
+- **Reliability:** Setup **Quorum Queues** for high availability.
+- **Dead Lettering:** Implement DLQ routing for malformed payloads or schema errors.
+
+### 2.3 CloudEvents Normalizer
+- Build the schema-validation layer for `NormalizedMessage` (CloudEvent spec).
+- **Idempotency:** Add `message_fingerprint` to prevent double-processing.
+
+---
+
+## Phase 3 — Vault Sync & CRDT Conflict Resolution
+**Goal:** Perfect consistency across Mobile and Desktop with offline-first support.
+
+### 3.1 Pull/Push Engine
+- Implement `lastPulledAt` cursor logic for incremental sync.
+- **Batched Sync:** Group local mutations into JSON change-sets.
+
+### 3.2 Conflict Resolution (CRDT)
+- Implement logical clocks (Hybrid Logical Clocks).
+- **Field-Level Merging:** Title vs Date collisions resolved via field-specific timestamps.
+- **Conflict Hub:** Surface UI cards for non-deterministic collisions (Human-in-the-loop).
+
+### 3.3 Safety Net & Remote Wipe
+- **Undo Buffer:** Implement 5-second `Redis` delay before committing deletions.
+- **Trash Logic:** Set 30-day logic-retention flag (`is_deleted` + `deleted_at`).
+- **Killswitch:** Implement remote trigger to wipe local PBKDF2 salt/keys.
+
+---
+
+## Phase 4 — The Multilingual Brain (The Sieve)
+**Goal:** Tiered AI extraction that learns user preferences.
+
+### 4.1 The AI Sieve (3-Tier)
+- **Level 0 (PII/Noise):** High-speed Multilingual Regex engine + PII Redaction filter.
+- **Level 1 (Scorer):** Categorization via `Grok-Fast` (Low latency).
+- **Level 2 (Extractor):** Detailed JSON schema extraction via `Gemini Pro`.
+- **Vision:** Attachment analysis using `Gemini 2.0 Flash` (Multimodal).
+
+### 4.2 Message Sessionization
+- **Debounce Window:** 45-second silence-based aggregator in `Redis`.
+- **Proactive Trigger:** Override 45s window if terminal punctuation (`?`, `!`) is detected.
+
+### 4.3 Multilingual Feedback Loop
+- **Prompt Enrichment:** Dynamically inject historical "Yes/No" context into AI system prompts (RAG pattern).
+- **Cross-lingual Normalization:** Natively multilingual embedding lookup (no translation-to-English required).
+- **Judge Mechanism:** Implement **LLM-as-a-judge Evaluator** to periodically audit scoring decisions against a static rubric to prevent In-Context Reward Hacking (ICRH).
+- **Prompt Shield:** Implement **LLM-Guard / Prompt Shielding** in the Sieve to prevent "Instruction Injection" attacks from malicious chat messages.
+- **Edit Learning:** Capture manual user edits to task cards as "High-Priority" training signals, feeding back into the Personalization Vector Store.
+
+---
+
+## Phase 5 — State Machine & Event Lifecycle
+**Goal:** Automated management of obligations through time.
+
+### 5.1 The 4-Stage State Machine
+- **Proposed:** Initial AI output awaiting human triage.
+- **Active:** Confirmed task with active calendar integration.
+- **Expired:** Auto-transition when `end_time` is reached.
+- **Archive:** Cleanup based on 30-day post-expiry policy.
+
+### 5.2 Chronobiological Scheduling
+- Implement RabbitMQ delayed exchanges for TTL triggers.
+- **Notification Triggers:** Dispatch re-engagement push if `Proposed` item is < 60m from start.
+- **Post-Event Loop:** Dispatch "Did you complete this?" notification 30m after end-time.
+
+---
+
+## Phase 6 — UX Polish & Native Monetization
+**Goal:** An "Instagram-snappy" experience with non-intrusive revenue.
+
+### 6.1 Interaction Physics
+- **Transitions:** Hero card expansions (0.3s cubic-bezier).
+- **Privacy Peeking:** Global toggle to blur sensitive cards.
+- **Grayscale Mode:** Auto-desaturate UI when network connectivity is lost.
+
+### 6.2 Native Ad Engine
+- **Kinetic Parity:** Support Swipe-to-Dismiss on ad cards for negative feedback loop.
+- **Ad Cadence:** Enforce injection of the first native ad only after the **3rd or 4th** organic item.
+- **Layout Robustness:** Mandate `flex-wrap` CSS wrappers for all ad components to prevent text overflow at high accessibility zoom levels.
+- **Transparency:** Add FTC-mandated "Sponsored" badges with proper contrast.
+
+---
+
+## Phase 7 — Quota Management & Reliability
+**Goal:** Multi-tenant resource policing and chaos hardening.
+
+### 7.1 Tiered Resource Allocation
+- **Free Tier:** 2 Group / 1 Email / 21 RPD limits.
+- **Pro/Max:** Unlimited channels / High priority shards / dedicated Workers.
+- **Token Bucket:** Implement global and per-user rate limiting in `Redis`.
+
+### 7.2 Chaos & Resilience
+- **Chaos Engineering:** Automated worker SIGTERM testing.
+- **DLP Gate:** Content size/MIME filtering at the API Gateway.
+- **Tenant Isolation:** Explicitly inject `tenant_id` into **JWT Claims** to enforce mandatory context for PostgreSQL RLS policies.
+- **Observability:** OpenTelemetry (OTel) traces for all AI inference steps.
+
+---
+
+## Phase 8 — Global Scale & Production
+**Goal:** Launch the official high-capacity engine.
+- **Stripe Integration:** Full subscription lifecycle (Webhooks, Portal, Seat management).
+- **De-boarding Logic:** Implement "Right to be Forgotten" workflow; revoke all OAuth tokens (WA/MS/Google); purge Vector Memory and Cloud Backup blobs on account deletion.
+- **Feedback & Reviews:** Build in-app "Rating Request" logic and a redacted "Bug Report" tool that strips PII before sending logs to engineers.
+- **WhatsApp Cutover:** Official API migration with signature verification.
+- **Analytics:** Privacy-preserving usage metrics (Anonymized event counts).
+
+---
+
+## Phase 9: Edge AI & Predictive Contextualization (V2.0)
+**Goal:** Localized intelligence with zero latency.
+- Integrate SLMs (like Gemma 3 1B) directly into mobile clients using 4-bit integer channel-wise quantization.
+- Deploy an on-device vector database (e.g., ObjectBox) to store semantic embeddings locally.
+- Create a background thread to generate predictive completions and task suggestions in real-time as the user types.
+
+## Phase 10: Cryptographic Semantic Deduplication (V2.0)
+**Goal:** Cross-channel task merging without data leakage.
+- Implement the **DA-PSI protocol** to enable local SQLCipher vaults to compare incoming Email and WhatsApp embeddings securely.
+- Set a semantic distance threshold that automatically merges incoming obligations if they fall within proximity limits.
+
+## Phase 11: Chronobiological UI Adaptation (V2.0)
+**Goal:** UI that synchronizes with the user's energy levels.
+- Build a local tracking algorithm to categorize user chronotype (morning lark vs. night owl) based on interaction timestamps.
+- Integrate dynamic feed-sorting logic that desaturates high-cognitive-load tasks during predicted afternoon energy dips.
+
+## Phase 12: Utility-Driven Native Monetization (V2.0)
+**Goal:** Monetization as a service.
+- Bind ad delivery API to specific task metadata (e.g., surfacing a sponsored florist only when a "Gift" or "Anniversary" obligation is extracted).
+- Ensure the advertisement acts as an immediate utility rather than a distraction.
+
+## Phase 13: Decentralized Multi-User Consensus (V2.0)
+**Goal:** Private group collaboration.
+- Deploy a privacy-preserving maximum consensus algorithm for shared group tasks.
+- Utilize virtual dummy nodes and in-context **zk-SNARK proofs** to cross-validate shared obligations without the central server viewing raw text.
