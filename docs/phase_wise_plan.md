@@ -5,7 +5,6 @@ This is the definitive, field-level source of truth for Chatnalyxer, incorporati
 ---
 
 # SECTION A — The Core Engine
-**Objective:** Build and launch the Zero-Knowledge functional MVP for 2-person delivery.
 
 ## A.1 Authentication, Identity & Onboarding
 - **Monorepo:** Initialize TurboRepo with `apps/mobile` (React Native), `apps/web` (Next.js), and `apps/backend` (FastAPI).
