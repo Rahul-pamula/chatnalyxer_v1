@@ -124,11 +124,24 @@ graph TD
 - **Mobile (RN)**: Local encrypted vault (SQLCipher/WatermelonDB), offline triage, push/pull sync, QR/pairing UI.
 - **Web Hub (Next.js)**: Connect center, privacy console, audit timeline, admin (DLQ replay).
 - **Ingestion**: Baileys multi-session for dev; Cloud API webhook for prod; IMAP/Graph poller for email; normalize to CloudEvents and push to RabbitMQ.
-- **Redaction Proxy**: Presidio + regex + LLM-Guard; **per-request salted tokenization** (nonce sealed with tenant KMS); no deterministic reuse; ephemeral map in memory only.
-- **AI Service**: Gemini with structured outputs + confidence thresholds; fallback rules engine; low-confidence → user confirmation. Azure DI for PDFs/images via async queue; emits obligations and evidence spans.
+- **Consent & Access Policy**: Enforces channel-level consent, attachment policy, and revocation checks before downstream processing.
+- **Redaction Proxy / Privacy Layer**: Presidio + regex + LLM-Guard; **per-request salted tokenization** (nonce sealed with tenant KMS); no deterministic reuse; ephemeral map in memory only.
+- **Source Classifier & Noise Filter**: Routes by input type, drops low-value chatter, and identifies candidate obligation-bearing content before extraction.
+- **Preprocessing**: OCR for PDFs/images, speech-to-text for voice, and parser normalization for message/email structures.
+- **Persona Resolver**: Resolves active persona context (`student`, `faculty`, `professional`) and feeds persona-specific policy into downstream scoring.
+- **Sender Importance + Context Memory**: Scores source importance and uses local/server memory to apply relationship, history, and preference-aware weighting.
+- **AI Service / Obligation Extractor**: Gemini with structured outputs + confidence thresholds; fallback rules engine; low-confidence → user confirmation. Azure DI for PDFs/images via async queue; emits obligations and evidence spans.
+- **Validation Guardrail**: Verifies extraction completeness, temporal validity, schema correctness, and minimum evidence before the obligation enters planning.
 - **Obligation/State Engine**: State machine (Detected → Proposed → Confirmed → Scheduled → Rescheduled → Canceled); versioned analyses; **hybrid dedupe** (time-window + participant hash + semantic embedding); conflict-safe/idempotent.
+- **Urgency + Escalation Engine**: Assigns urgency tiers, decides reminder intensity, and routes medium/low-confidence or high-risk cases to confirmation or manual review.
+- **Persona Intelligence Layer**: Persona-specific reasoning branches:
+  - Student: academic deadlines, exam pressure, last-minute rescue logic
+  - Faculty: course/admin obligations, meeting load, review cycles
+  - Professional: meeting, deliverable, and stakeholder priority balancing
 - **Scheduler**: Google/Microsoft adapters; conflict rules (buffers, working hours, no double-book); time-zone safe; reschedule/cancel hooks; alarm/notification matrix.
 - **Notification**: SES email, WA acks (templates), push (Expo/Firebase), in-app toasts.
+- **Output Formatter**: Produces user-facing obligation summaries, reminders, schedules, and explanation text matched to confidence and persona context.
+- **Evaluator / Success Check**: Measures whether the chosen action succeeded using confirmation, completion, snooze, edit, and dismissal outcomes.
 - **Data Stores**: Postgres with RLS per user + tenant_id indices + “tenant required” guard; Redis for limits/locks; S3 for consented blobs (off by default); local vault on device (hot/cold tiers).
 - **Observability**: OTel traces/metrics/logs → CloudWatch/X-Ray; dashboards for ingest latency, AI latency, calendar success, DLQ depth.
 
@@ -155,6 +168,10 @@ RLS policy: `USING (user_id = current_setting('app.current_tenant')::uuid)` on e
 - `ai.analysis.requested`: `{payload_id, anonymized_text, context[], schema_version}`
 - `obligation.created|updated`: `{obligation_id, delta, state, reason}`
 - `calendar.schedule.changed`: `{obligation_id, provider, external_event_id, new_start, status}`
+- `obligation.validation.failed`: `{payload_id, reason, evidence_spans, confidence}`
+- `obligation.escalated`: `{obligation_id, urgency_level, escalation_reason, route}`
+- `persona.resolved`: `{user_id, persona, source, confidence}`
+- `evaluation.completed`: `{obligation_id, outcome, corrections, completion_signal}`
 
 ## API Surface (FastAPI)
 - WhatsApp: `/whatsapp connect|status|qr|pairing|disconnect|sync-groups`
