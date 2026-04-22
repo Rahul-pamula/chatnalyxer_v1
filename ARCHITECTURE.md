@@ -8,6 +8,7 @@ Privacy-preserving obligation engine for WhatsApp + Email. v1 uses **cloud-side 
 - Privacy stance: v1 “privacy-preserving cloud processing” — inbound webhooks/pollers hit backend, redaction happens immediately; no raw persistence beyond in-memory queue; device remains system of record. Roadmap: Option A true local ingest.
 - AI: Gemini 2.0 Flash (structured JSON), Azure Document Intelligence OCR; RAG-ready embeddings of sanitized text.
 - Outputs: calendar events (Google/Microsoft), notifications/alarms, audit trail.
+- Agent stance: context-aware obligation agent with confidence-based routing, persona-aware reasoning, escalation, and feedback-driven adaptation.
 
 ## High-Level Topology
 ```mermaid
@@ -64,6 +65,59 @@ graph TD
   STATE <--> PG
   STATE --> S3
   PG --- KMS
+```
+
+## Agent Decision Flow
+```mermaid
+graph TD
+  A[Input Sources: WhatsApp / Email / PDF / Image / Voice] --> B[Consent and Access Policy]
+  B --> C[Privacy Layer]
+  C --> D[Source Classifier and Router]
+  D --> E[Noise Filter]
+  E --> F[Preprocessing: OCR / Speech-to-text / Parsing]
+  F --> G[Persona Resolver: Student / Faculty / Professional]
+  G --> H[Sender Importance Scorer]
+  H --> I[LLM Obligation Extraction]
+  I --> J[Validation Guardrail]
+  J --> K{Confidence Level}
+
+  K -->|High| L1[High Confidence Path]
+  K -->|Medium| L2[Medium Confidence Path]
+  K -->|Low| L3[Low Confidence Path]
+
+  L1 --> M[Deduplication Engine]
+  L2 --> X[Fallback / Human Confirmation]
+  X --> M
+  L3 --> X
+
+  M --> N[Conflict Checker]
+  N --> O[User Context Memory]
+  O --> P[Urgency Scorer]
+  P --> Q{Urgency Level}
+
+  Q --> Q1[Low]
+  Q --> Q2[Medium]
+  Q --> Q3[High]
+  Q --> Q4[Critical]
+
+  Q1 --> R[Escalation Engine]
+  Q2 --> R
+  Q3 --> R
+  Q4 --> R
+
+  R --> S{Persona Branch}
+  S --> S1[Student Intelligence]
+  S --> S2[Faculty Intelligence]
+  S --> S3[Professional Intelligence]
+
+  S1 --> T[Scheduler]
+  S2 --> T
+  S3 --> T
+
+  T --> U[Notification / Alarm Engine]
+  U --> V[Output Formatter]
+  V --> W[Audit and Feedback Loop]
+  W --> Y[Evaluator / Success Check]
 ```
 
 ## Component Responsibilities
