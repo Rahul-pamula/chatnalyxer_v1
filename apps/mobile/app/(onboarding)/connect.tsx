@@ -43,7 +43,7 @@ export default function ConnectScreen() {
         {/* Skip for now */}
         <TouchableOpacity
           style={styles.skipButton}
-          onPress={() => router.replace('/(tabs)')}
+          onPress={() => router.replace('/(tabs)/feed')}
           activeOpacity={0.7}
         >
           <Text style={styles.skipText}>Skip for now — I'll connect later from the Hub</Text>
