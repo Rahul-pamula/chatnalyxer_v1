@@ -206,6 +206,10 @@ RLS policy: `USING (user_id = current_setting('app.current_tenant')::uuid)` on e
 - Offline queue: priority tiers, TTL per job, revalidate obligations on reconnect before apply.
 - OCR: pre-filter MIME/size/pages; async queue; user “processing…” status; cap concurrency.
 - AI reliability: confidence thresholds; fallback rules engine; low-confidence → user confirmation.
+- Source quality controls: route by input modality, suppress non-obligation chatter, and down-rank low-signal senders/content.
+- Validation: reject incomplete extractions without time/action semantics unless explicitly marked as informational.
+- Persona policy: scoring and action thresholds may vary by resolved persona, but guardrails remain global.
+- Escalation: critical urgency or medium-confidence/high-impact cases require explicit confirmation before external actions.
 - RAG: embeddings always stored (sanitized); usage toggle at inference time to avoid codepath divergence.
 
 ## Rollout
